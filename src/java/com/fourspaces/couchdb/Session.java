@@ -18,6 +18,8 @@ package com.fourspaces.couchdb;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,12 +32,6 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
-import org.apache.http.conn.scheme.SchemeRegistry;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.scheme.PlainSocketFactory;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.params.HttpParams;
-import org.apache.http.params.BasicHttpParams;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpClient;
@@ -46,10 +42,16 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.params.AllClientPNames;
 import org.apache.http.client.params.ClientPNames;
+import org.apache.http.conn.scheme.PlainSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpParams;
 
 /**
  * The Session is the main connection to the CouchDB instance.  However, you'll only use the Session
@@ -355,30 +357,28 @@ public class Session {
 	 * Send a GET request
 	 * @param url
 	 * @return
+	 * @throws URISyntaxException 
 	 */
-	CouchResponse get(String url) {
-		HttpGet get = new HttpGet(buildUrl(url));
-		return http(get);
-	}
-	/**
-	 * Send a GET request with a number of name/value pairs as a query string
-	 * @param url
-	 * @param queryParams
-	 * @return
-	 */
-	CouchResponse get(String url, NameValuePair[] queryParams) {
-		HttpGet get = new HttpGet(buildUrl(url, queryParams));
-		return http(get);
+	CouchResponse get(String path) {
+		return get(path, (String) null);
 	}
 	
 	/**
 	 * Send a GET request with a queryString (?foo=bar)
-	 * @param url
+	 * @param path
 	 * @param queryString
 	 * @return
 	 */
-	CouchResponse get(String url, String queryString) {
-		HttpGet get = new HttpGet(buildUrl(url, queryString));
+	CouchResponse get(String path, String queryString) {
+		if(!path.startsWith("/")) {
+			path = "/" + path;
+		}
+		HttpGet get;
+		try {
+			get = new HttpGet(new URI((secure) ? "https" : "http", null, host, port, path, queryString, null));
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException(e);
+		}
 		return http(get);
 	}
 	

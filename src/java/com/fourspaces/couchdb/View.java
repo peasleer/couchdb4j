@@ -12,34 +12,34 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-*/
+ */
 
 package com.fourspaces.couchdb;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import net.sf.json.JSONArray;
+
 /**
- * The View is the mechanism for performing Querys on a CouchDB instance.
- * The view can be named or ad-hoc (see AdHocView). (Currently [14 Sept 2007] named view aren't working in the 
- * mainline CouchDB code... but this _should_ work.)
+ * The View is the mechanism for performing Querys on a CouchDB instance. The
+ * view can be named or ad-hoc (see AdHocView). (Currently [14 Sept 2007] named
+ * view aren't working in the mainline CouchDB code... but this _should_ work.)
  *<p>
- * The View object exists mainly to apply filtering to the view.  Otherwise, views can be 
- * called directly from the database object by using their names (or given an ad-hoc query).
+ * The View object exists mainly to apply filtering to the view. Otherwise,
+ * views can be called directly from the database object by using their names
+ * (or given an ad-hoc query).
  * 
  * @author mbreese
- *
+ * 
  */
 public class View {
-	protected String startKey;
-	protected String endKey;
-	protected Integer limit;
-	protected Boolean update;
-	protected Boolean reverse;
-	protected String skip;
-        protected Boolean group;
-	
 	protected String name;
 	protected Document document;
 	protected String function;
-	
+	protected Map<String,String> queryParams = new HashMap<String,String>();
+
 	/**
 	 * Build a view given a document and a name
 	 * 
@@ -47,23 +47,24 @@ public class View {
 	 * @param name
 	 */
 	public View(Document doc, String name) {
-		this.document=doc;
-		this.name=name;
+		this.document = doc;
+		this.name = name;
 	}
-	
+
 	/**
 	 * Build a view given only a fullname ex: ("_add_docs", "_temp_view")
+	 * 
 	 * @param fullname
 	 */
 	public View(String fullname) {
-		this.name=fullname;
-		this.document=null;
+		this.name = fullname;
+		this.document = null;
 	}
-	
+
 	/**
-	 * Builds a new view for a document, a given name, and the function definition.
-	 * This <i>does not actually add it to the document</i>.  That is handled by
-	 * Document.addView()
+	 * Builds a new view for a document, a given name, and the function
+	 * definition. This <i>does not actually add it to the document</i>. That is
+	 * handled by Document.addView()
 	 * <p>
 	 * This constructor should only be called by Document.addView();
 	 * 
@@ -72,135 +73,172 @@ public class View {
 	 * @param function
 	 */
 	View(Document doc, String name, String function) {
-		this.name=name;
-		this.document=doc;
-		this.function=function;
+		this.name = name;
+		this.document = doc;
+		this.function = function;
 	}
-	
+
 	/**
-	 * Based upon settings, builds the queryString to add to the URL for this view.
+	 * Based upon settings, builds the queryString to add to the URL for this
+	 * view.
 	 * 
 	 * 
 	 * @return
 	 */
 	public String getQueryString() {
-		String queryString = "";
-		if (startKey!=null) {
-			if (!queryString.equals("")) { queryString+="&"; }
-			queryString+="startkey="+startKey;
+		StringBuffer queryStringBuffer = new StringBuffer();
+		
+		for(Entry<String, String> param : queryParams.entrySet()) {
+			if(null != param.getValue() && !"".equals(param.getValue())) {
+				if(queryStringBuffer.length() > 0) {
+					queryStringBuffer.append("&");
+				}
+				queryStringBuffer.append(param.getKey());
+				queryStringBuffer.append("=");
+				queryStringBuffer.append(param.getValue());
+			}
 		}
-		if (endKey!=null) {
-			if (!queryString.equals("")) { queryString+="&"; }
-			queryString+="endkey="+endKey;
-		}
-		if (skip!=null) {
-			if (!queryString.equals("")) { queryString+="&"; }
-			queryString+="skip="+skip;
-		}
-		if (limit!=null) {
-			if (!queryString.equals("")) { queryString+="&"; }
-			queryString+="limit="+limit;
-		}
-		if (update!=null && update.booleanValue()) {
-			if (!queryString.equals("")) { queryString+="&"; }
-			queryString+="update=true";
-		}
-		if (reverse!=null && reverse.booleanValue()) {
-			if (!queryString.equals("")) { queryString+="&"; }
-		 			queryString+="descending=true";
-		}
-        if (group!=null && group.booleanValue()) {
-        	if (!queryString.equals("")) { queryString+="&"; }
-        		queryString+="group=true";		
-        }
+		
+		String queryString = queryStringBuffer.toString();
 		return queryString.equals("") ? null : queryString;
-		                 
+
+	}
+
+	public void setKey(String key) {
+		if(!key.startsWith("\"")) {
+			key = "\"" + key + "\"";
+		}
+		queryParams.put("key", key);
+	}
+
+	/**
+	 * Start listing at this key
+	 * 
+	 * @param startKey
+	 */
+	public void setSingleStartKey(String startKey) {
+		if(null != queryParams) {
+			setStartKey("[\""+startKey+"\"]");
+		} else {
+			setStartKey((String) null);
+		}
+	}
+
+	public void setStartKey(JSONArray startKey) {
+		setStartKey(startKey.toString());
 	}
 	
+	public void setStartKey(String startKey) {
+		queryParams.put("startkey", startKey);
+	}
+
+	/**
+	 * Stop listing at this key
+	 * 
+	 * @param endKey
+	 */
+	public void setSingleEndKey(String endKey) {
+		if(null != queryParams) {
+			setEndKey("[\""+endKey+"\"]");
+		} else {
+			setEndKey((String) null);
+		}
+	}
+
+	public void setEndKey(JSONArray endKey) {
+		setEndKey(endKey.toString());
+	}
+	
+	public void setEndKey(String endKey) {
+		queryParams.put("endkey", endKey);
+	}
+
 	/**
 	 * The number of entries to return
+	 * 
 	 * @param count
-         * @deprecated CouchDB 0.9 uses limit instead
+	 * @deprecated CouchDB 0.9 uses limit instead
 	 */
 	public void setCount(Integer count) {
-		//this.count = count;
+		// this.count = count;
 		setLimit(count);
 	}
 
-        public void setLimit(Integer limit) {
-          this.limit = limit;
-        }
-
-        public void setGroup(Boolean group) {
-          this.group = group;
-        }
-  
-	/**
-	 * Stop listing at this key
-	 * @param endKey
-	 */
-	public void setEndKey(String endKey) {
-		this.endKey = endKey;
+	public void setLimit(Integer limit) {
+		queryParams.put("limit", String.valueOf(limit));
 	}
+
 	/**
 	 * Reverse the listing
+	 * 
 	 * @param reverse
-     * @deprecated CouchDB 0.9 uses "descending" instead
+	 * @deprecated CouchDB 0.9 uses "descending" instead
 	 */
 	public void setReverse(Boolean reverse) {
-		this.reverse = reverse;
+		setDescending(reverse);
 	}
 
-    public void setDescending(Boolean descending) {
-        this.reverse = descending;
-    }
+	public void setDescending(Boolean descending) {
+		setBooleanParameter("descending", descending);
+	}
+
+	public void setGroup(Boolean group) {
+		setBooleanParameter("group", group);
+	}
+
 	/**
 	 * Skip listing these keys (not sure if this works, or the format)
+	 * 
 	 * @param skip
 	 */
-	public void setSkip(String skip) {
-		this.skip = skip;
+	public void setSkip(int skip) {
+		queryParams.put("skip", String.valueOf(skip));
 	}
-	/**
-	 * Start listing at this key
-	 * @param startKey
-	 */
-	public void setStartKey(String startKey) {
-		this.startKey = startKey;
-	}
+
 	/**
 	 * Not sure... might be for batch updates, but not sure.
+	 * 
 	 * @param update
 	 */
 	public void setUpdate(Boolean update) {
-		this.update = update;
+		setBooleanParameter("update", update);
 	}
 
 	/**
 	 * The name for this view (w/o doc id)
+	 * 
 	 * @return
 	 */
 	public String getName() {
 		return name;
 	}
+
 	/**
-	 * the full name for this view (w/ doc id, if avail)
-	 * in the form of : 
-	 * "docid:name"
-	 * or 
-	 * "name"
+	 * the full name for this view (w/ doc id, if avail) in the form of :
+	 * "docid:name" or "name"
+	 * 
 	 * @return
 	 */
 	public String getFullName() {
-		return (document==null) ? name: document.getViewDocumentId()+"/"+name;
+		return (document == null) ? name : document.getViewDocumentId() + "/"
+				+ name;
 	}
 
 	/**
 	 * The function definition for this view, if it is available.
+	 * 
 	 * @return
 	 */
 	public String getFunction() {
 		return function;
 	}
 	
+	private void setBooleanParameter(String param, Boolean value) {
+		if(value) {
+			queryParams.put(param, String.valueOf(value));
+		} else {
+			queryParams.remove(param);
+		}
+	}
+
 }
